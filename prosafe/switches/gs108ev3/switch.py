@@ -3,6 +3,7 @@ from collections import defaultdict
 from io import BytesIO
 from copy import deepcopy
 from typing import Dict, List, Set
+from functools import partial
 
 from bs4 import BeautifulSoup
 import requests
@@ -10,6 +11,9 @@ import requests
 from ..general import BaseSwitch, PortId, PvidConfig, SingleVlanConfig, VlanConfig, VlanId, VlanPortMembership, vlan_ports_to_config_string
 from .consts import *
 from .utils import password_kdf, simple_slug
+
+
+BeautifulSoup = partial(BeautifulSoup, features="html.parser")
 
 
 class SwitchSession(requests.Session):
@@ -46,20 +50,20 @@ class Switch(BaseSwitch):
 
     def login(self):
         res = self._s.get(SW_LOGIN)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         random_number = soup.find(id=SW_FORM_RAND_ID).get('value', None)
         assert isinstance(random_number, str), "Cannot get salt/rand from form data, so cannot login!"
 
         hashed_password = password_kdf(self._password, random_number)
         login_form = {'password': hashed_password}
         res = self._s.post(SW_LOGIN, data=login_form)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         err_msg = soup.find(id=SW_FORM_ERRMSG_ID)
         assert err_msg == None, f"Login error: {err_msg.get('value')}"
         assert 'top.location.href = "index.htm";' in res.text, "Unable to login!"
 
         res = self._s.get(SW_INFO)  # cache the session hash
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         session_hash = soup.find('input', id='hash').get('value', None)
         self._session_hash = session_hash
         assert isinstance(self._session_hash, str), "Cannot get a valid session hash!"
@@ -80,7 +84,7 @@ class Switch(BaseSwitch):
     def restore(self, config: bytes):
         file_size = len(config)
         res = self._s.get(SW_RESTORE)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         file_size_limit = int(soup.find(id='configSize').get('value'))
         assert file_size <= file_size_limit, "Config binary too large({file_size} > {file_size_limit}), check your data!"
 
@@ -89,7 +93,7 @@ class Switch(BaseSwitch):
         files = {'backup.cfg': config_file}
         res = self._s.post(SW_RESTORE, data=form_data, files=files)
         res.raise_for_status()
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         if err_msg := soup.find(id=SW_FORM_ERRMSG_ID):
             err_msg = err_msg.get('value', '')
             assert len(err_msg) == 0, f"Restore config error: {err_msg}"
@@ -121,7 +125,7 @@ class Switch(BaseSwitch):
         data = dict()
 
         text = self._s.get(SW_INFO).text
-        soup = BeautifulSoup(text, features="html.parser")
+        soup = BeautifulSoup(text)
 
         for key in _changable_keys:
             slug = simple_slug(key)
@@ -138,7 +142,7 @@ class Switch(BaseSwitch):
     def _get_current_vlans(self):
         vlans = set()
         res = self._s.get(SW_8021Q_MEMBERSHIP)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         # get all listed vlans, which each has an option
         selection = soup.find('select', id='vlanIdOption')
         for op in selection.find_all('option'):
@@ -160,7 +164,7 @@ class Switch(BaseSwitch):
             'hash': self._session_hash,
         }
         res = self._s.post(SW_8021Q_MEMBERSHIP, data=data)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         current_id = soup.find('input', attrs={'name': "VLAN_ID_HD"}).get('value')
         assert current_id == str(vid), f"Unexpected error, cannot fetch vlan{vid} data, get vlan{current_id}."
         # port settings are in a string formed like "12122223"
@@ -173,7 +177,7 @@ class Switch(BaseSwitch):
 
     def fetch_pvids(self) -> PvidConfig:
         res = self._s.get(SW_8021Q_PVIDS)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         pvids: PvidConfig = dict()
         for port in soup.find_all('tr', attrs={'class': 'portID'}):
             pvid = VlanId(port.find('td', attrs={'class': 'def', 'sel': 'input'}).text)
@@ -279,7 +283,7 @@ class Switch(BaseSwitch):
 
     def _get_vlan_count(self):
         res = self._s.get(SW_8021Q_CFG)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         vlan_num = soup.find('input', attrs={'name': 'vlanNum'}).get('value')
         return int(vlan_num)
 
@@ -294,7 +298,7 @@ class Switch(BaseSwitch):
             'ACTION': "Add",
         }
         res = self._s.post(SW_8021Q_CFG, data=data)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         err_msg = soup.find(id=SW_FORM_ERRMSG_ID).get('value', '')
         assert len(err_msg) == 0, f"Add VLAN error: {err_msg}"
 
@@ -320,7 +324,7 @@ class Switch(BaseSwitch):
             form[key] = v
 
         res = self._s.post(SW_8021Q_CFG, data=form)
-        soup = BeautifulSoup(res.text, features="html.parser")
+        soup = BeautifulSoup(res.text)
         err_msg = soup.find(id=SW_FORM_ERRMSG_ID).get('value', '')
         assert len(err_msg) == 0, f"Delete VLAN error: {err_msg}"
 
@@ -338,7 +342,7 @@ class Switch(BaseSwitch):
             'hash': self._session_hash,
             'hiddenMem': membership, }
         res = self._s.post(SW_8021Q_MEMBERSHIP, data=form)
-        err_msg = BeautifulSoup(res.text, features="html.parser").find(id=SW_FORM_ERRMSG_ID).get('value', '')
+        err_msg = BeautifulSoup(res.text).find(id=SW_FORM_ERRMSG_ID).get('value', '')
         assert len(err_msg) == 0, f"Set ports membership failed! Msg: {err_msg}"
 
     def _set_ports_pvid(self, ports: List[PortId], vid: VlanId):
@@ -349,7 +353,7 @@ class Switch(BaseSwitch):
             assert 1 <= pid <= self._port_count, f"Port index out of range, expect 1 <= pid <= {self._port_count}"
             form[f'port{pid}'] = 'checked'
         res = self._s.post(SW_8021Q_PVIDS, data=form)
-        err_msg = BeautifulSoup(res.text, features="html.parser").find(id=SW_FORM_ERRMSG_ID).get('value', '')
+        err_msg = BeautifulSoup(res.text).find(id=SW_FORM_ERRMSG_ID).get('value', '')
         assert len(err_msg) == 0, f"Set port vlan id failed! Msg: {err_msg}"
 
     def fetch_statistics(self) -> Dict:
