@@ -1,4 +1,5 @@
-from typing import Dict
+from collections import defaultdict
+from typing import Dict, Set
 import re
 from functools import partial
 
@@ -33,18 +34,19 @@ class Switch(BaseSwitch):
     _password: str
     _s: SwitchSession
     _secure_rand: str
-    _general_info_pattern = re.compile("var sysGeneInfor = '([A-Za-z0-9.?-]+)';")
-    _secure_rand_pattern = re.compile("var secureRand = '([A-Z0-9]+)';")
+    _general_info_pattern = re.compile("(?<=var sysGeneInfor = ')([A-Za-z0-9.?:-]+)(?=';)")
+    _secure_rand_pattern = re.compile("(?<=var secureRand = ')([A-Z0-9]+)(?=';)")
+    _vlanmem_pattern = re.compile("(?<=var vlanMem = ')([TU0-9,?]+)(?=';)")
 
     def __init__(self, address: str, password: str) -> None:
         if address.startswith('http'):
             self._address = address
         else:
             self._address = 'http://' + address
-        
+
         self._password = password
         self._s = SwitchSession(self._address)
-    
+
     def login(self):
         self._s.get(SW_URI_LOGIN)
         login_form = {
@@ -56,13 +58,13 @@ class Switch(BaseSwitch):
         redirect = BeautifulSoup(res.text).find('script').text.strip()
         assert SW_URI_INDEX + '?0' in redirect, \
             "Login failed, check your password!"
-        
+
         # cache secure rand
         res = self._s.get(SW_URI_INDEX)
         matched = self._secure_rand_pattern.search(res.text)
         assert matched != None, "Secure rand can't be found in the response text! Aborting!"
-        self._secure_rand = matched[1]
-    
+        self._secure_rand = matched.group(0)
+
     def logout(self):
         logout_form = {
             'submitId': 'logoutBtn',
@@ -72,13 +74,13 @@ class Switch(BaseSwitch):
         res = self._s.post(SW_URI_INDEX, data=logout_form)
         res.raise_for_status()
         self._secure_rand = None
-    
+
     def fetch_information(self) -> Dict[str, str]:
-        res = self._s.get(SW_URI_INDEX)
+        res = self._s.get(SW_URI_INFO)
         matched = self._general_info_pattern.search(res.text)
         if matched == None:
             return dict()
-        data_list = matched[1].split('?')
+        data_list = matched.group(0).split('?')
         data = {
             'Product Name':     data_list[0],
             'Switch Name':      data_list[1],
@@ -91,3 +93,40 @@ class Switch(BaseSwitch):
             'Serial Number':    data_list[8],
         }
         return data
+
+    def _enable_8021q_vlan(self):
+        form_data = {
+            "submitId": "vlanDot1VidCfg",
+            "secureRand": self._secure_rand,
+            "aDot1VLAN": "Enable",
+            "changeType": "1",
+            "addVid": "",
+            "delVid": "0",
+            "confirmOK": "0",
+            "submitEnd": "",
+        }
+        res = self._s.post(SW_URI_8021Q, data=form_data)
+        assert SW_URI_8021Q.strip('/') in res.text, "Failed to enable advanced 802.1Q VLAN! Maybe you need a re-login?"
+
+    def fetch_vlan_membership(self) -> VlanConfig:
+        res = self._s.get(SW_URI_8021Q)
+        matched = self._vlanmem_pattern.search(res.text)
+        assert matched != None, f"No VLAN information found! Server response: {res.text}"
+        vlan_membership: VlanConfig = defaultdict(lambda: {i: VlanPortMembership.IGNORED for i in range(1, self._port_count + 1)})
+        vlan_groups = matched.group(0).split(',')
+        for vlan in vlan_groups:
+            vlan_info = vlan.split('?')
+            vid = vlan_info[0]
+            # touch each vid, so it's created even if it's empty
+            vlan_membership[vid]
+            for pid, v in enumerate(vlan_info[1:], 1):
+                if v == 'T':
+                    vlan_membership[vid][pid] = VlanPortMembership.TAGGED
+                elif v == 'U':
+                    vlan_membership[vid][pid] = VlanPortMembership.UNTAGGED
+                # else: # v==''
+                #     vlan_membership[vid][pid] = VlanPortMembership.IGNORED
+        return dict(vlan_membership)
+
+    def _add_vlan(self):
+        pass
