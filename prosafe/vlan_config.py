@@ -9,7 +9,7 @@ from pydantic import BaseModel, validate_call
 from pydantic.functional_validators import BeforeValidator, model_validator
 
 from .switches.general import PvidConfig, VlanConfig, VlanPortMembership, VlanId, PortId
-from .switches.general import SwitchModel
+from .switches import SwitchModel
 
 
 @validate_call

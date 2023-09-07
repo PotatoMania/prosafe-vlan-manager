@@ -1,4 +1,4 @@
-from enum import IntEnum, StrEnum
+from enum import IntEnum
 from typing import Dict
 from contextlib import contextmanager
 
@@ -7,22 +7,9 @@ VlanId = int
 PortId = int
 
 
-SWITCH_PORT_COUNT = {
-    'gs108ev3': 8,
-    'gs116ev2': 16,
-}
-
-class SwitchModel(StrEnum):
-    GS108EV3 = 'gs108ev3'
-    GS116EV2 = 'gs116ev2'
-
-    @property
-    def port_count(self):
-        return SWITCH_PORT_COUNT[self.value]
-
-
 class VlanPortMembership(IntEnum):
-    # These values are from web interface
+    # These values are from GS108Ev3's web interface
+    # order matters!
     UNTAGGED = 1
     TAGGED = 2
     IGNORED = 3
@@ -41,6 +28,9 @@ def vlan_ports_to_config_string(vlan_ports_settings: SingleVlanConfig):
 
 
 class BaseSwitch:
+    def __init__(self, address: str, password: str) -> None:
+        pass
+
     def login(self):
         raise NotImplementedError()
 

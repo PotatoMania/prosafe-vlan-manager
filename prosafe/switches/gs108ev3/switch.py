@@ -183,7 +183,7 @@ class Switch(BaseSwitch):
 
     def apply_vlan_config(self, membership: VlanConfig, pvids: PvidConfig):
         self._apply_vlan_settings(membership, pvids)
-    
+
     def _apply_vlan_settings(self, membership: VlanConfig, pvids: PvidConfig):
         port_count_plus_1 = self._port_count + 1
 
@@ -224,6 +224,7 @@ class Switch(BaseSwitch):
             merged_membership: SingleVlanConfig = {i: VlanPortMembership.IGNORED for i in range(1, port_count_plus_1)}
             for pid, new_port_membership in new_vlans[vid].items():
                 old_port_membership = old_membership[pid]
+                # NOTE: here min relies on IntEnum and its order
                 merged_membership[pid] = min(new_port_membership, old_port_membership)
             step1_membership[vid] = merged_membership
             # then continue to expected setup
@@ -238,9 +239,9 @@ class Switch(BaseSwitch):
             pvid = old_pvids[port_id]
             vids_to_preserve.add(pvid)
             # the pvid must exist as a vid in VlanConfig, because all vids are processed,
-            # and old pvid must be one of the vids. 
+            # and old pvid must be one of the vids.
             step2_membership[pvid][port_id] = old_vlans[pvid][port_id]
-        
+
         vids_to_remove -= vids_to_preserve
 
         # transpose the new_pvids, so it can be processed in batch
@@ -256,14 +257,14 @@ class Switch(BaseSwitch):
         # - step2_membership
         # - vids_to_remove
         # debug:
-        print("======")
-        print(vids_to_add)
-        print(step1_membership)
-        print(new_vpids)
-        print(step2_membership)
-        print(vids_to_remove)
-        print("======")
-        return  # now testing
+        # print("======")
+        # print(vids_to_add)
+        # print(step1_membership)
+        # print(new_vpids)
+        # print(step2_membership)
+        # print(vids_to_remove)
+        # print("======")
+        # return  # now testing
         for vid in vids_to_add:
             self._add_vlan(vid)
         for vid, membership in step1_membership.items():
