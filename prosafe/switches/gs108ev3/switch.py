@@ -7,7 +7,7 @@ from typing import Dict, List, Set
 from bs4 import BeautifulSoup
 import requests
 
-from ..general import BaseSwitch, PortId, VlanConfig, VlanId, VlanPortMembership, vlan_ports_to_config_string
+from ..general import BaseSwitch, PortId, SingleVlanConfig, VlanConfig, VlanId, VlanPortMembership, vlan_ports_to_config_string
 from .consts import *
 from .utils import password_kdf, simple_slug
 
@@ -154,7 +154,7 @@ class Switch(BaseSwitch):
             vlan_config[vid] = self._load_vlan_by_id(vid)
         return vlan_config
 
-    def _load_vlan_by_id(self, vid: VlanId) -> Dict[PortId, VlanPortMembership]:
+    def _load_vlan_by_id(self, vid: VlanId) -> SingleVlanConfig:
         data = {
             'VLAN_ID': vid,
             'hash': self._session_hash,
@@ -208,8 +208,8 @@ class Switch(BaseSwitch):
         # track port membership changes
         # step1: add more T or U
         # step2: remove existing T or U
-        step1_membership: Dict[VlanId, Dict[PortId, VlanPortMembership]] = dict()
-        step2_membership: Dict[VlanId, Dict[PortId, VlanPortMembership]] = dict()
+        step1_membership: VlanConfig = dict()
+        step2_membership: VlanConfig = dict()
         for vid in vids_to_add:
             # newly created, just add in step1
             step1_membership[vid] = deepcopy(new_vlans[vid])
@@ -220,7 +220,7 @@ class Switch(BaseSwitch):
             # modifiy
             # enable all T, U in both old and new
             old_membership = old_vlans[vid]
-            merged_membership: Dict[PortId, VlanPortMembership] = {i: VlanPortMembership.IGNORED for i in range(1, port_count_plus_1)}
+            merged_membership: SingleVlanConfig = {i: VlanPortMembership.IGNORED for i in range(1, port_count_plus_1)}
             for pid, new_port_membership in new_vlans[vid].items():
                 old_port_membership = old_membership[pid]
                 merged_membership[pid] = min(new_port_membership, old_port_membership)

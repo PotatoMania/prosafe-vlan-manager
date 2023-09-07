@@ -11,7 +11,7 @@ from .switches.general import VlanPortMembership, VlanId, PortId
 from .switches.general import SwitchModel
 
 
-def validate_vlan_note_list(notes: List[str]):
+def _validate_vlan_note_list(notes: List[str]):
     data = dict()
     for note in notes:
         vid = int(note[:-1])
@@ -32,7 +32,7 @@ def validate_vlan_note_list(notes: List[str]):
     return data
 
 
-_VlanNoteDict = Annotated[List[str], AfterValidator(validate_vlan_note_list)]
+_VlanNoteDict = Annotated[List[str], AfterValidator(_validate_vlan_note_list)]
 
 
 class _PortVlanConfig(BaseModel):
@@ -43,7 +43,6 @@ class _PortVlanConfig(BaseModel):
 class SwitchVlanConfig(BaseModel):
     address: str
     password: str
-    port_count: int
     model: SwitchModel
     ports: Dict[PortId, _PortVlanConfig]
 
@@ -51,7 +50,8 @@ class SwitchVlanConfig(BaseModel):
     def check_pvid_and_pid(self):
         for p, c in self.ports.items():
             assert c.pvid in c.vlans, f"Port {p} assigned pvid {c.pvid} but it's NOT in VLAN{c.pvid}!"
-            assert 1 <= p <= self.port_count, f"Port {p} exceeds acceptable port ID range[1,{self.port_count}(port_count)], please check your config!"
+            assert 1 <= p <= (pcount := self.model.port_count), \
+                f"Port {p} exceeds acceptable port ID range[1,{pcount}(port_count)], please check your config!"
     
     def get_config_by_vlan(self, vid: VlanId):
         data = dict()

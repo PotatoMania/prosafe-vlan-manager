@@ -7,9 +7,18 @@ VlanId = int
 PortId = int
 
 
+SWITCH_PORT_COUNT = {
+    'gs108ev3': 8,
+    'gs116ev2': 16,
+}
+
 class SwitchModel(StrEnum):
     GS108EV3 = 'gs108ev3'
     GS116EV2 = 'gs116ev2'
+
+    @property
+    def port_count(self):
+        return SWITCH_PORT_COUNT[self.value]
 
 
 class VlanPortMembership(IntEnum):
@@ -19,10 +28,11 @@ class VlanPortMembership(IntEnum):
     IGNORED = 3
 
 
-VlanConfig = Dict[VlanId, Dict[PortId, VlanPortMembership]]
+SingleVlanConfig = Dict[PortId, VlanPortMembership]
+VlanConfig = Dict[VlanId, SingleVlanConfig]
 
 
-def vlan_ports_to_config_string(vlan_ports_settings: Dict[PortId, VlanPortMembership]):
+def vlan_ports_to_config_string(vlan_ports_settings: SingleVlanConfig):
     """vlan_ports_settings must contain all ports"""
     pids = sorted(vlan_ports_settings.keys())
     string = ''.join(map(str, [vlan_ports_settings[pid] for pid in pids]))
