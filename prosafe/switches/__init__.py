@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Type
 from .general import BaseSwitch
 from .gs108ev3 import Switch as DRI_GS108EV3
 
@@ -22,5 +23,5 @@ class SwitchModel(StrEnum):
         return SWITCH_PORT_COUNT.get(self.value, 0)
     
     @property
-    def driver(self):
+    def driver(self) -> Type[BaseSwitch]:
         return SWITCH_DRIVER.get(self.value, BaseSwitch)
