@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Set
+from typing import Dict, List, Set
 import re
 from functools import partial
 
@@ -128,5 +128,24 @@ class Switch(BaseSwitch):
                 #     vlan_membership[vid][pid] = VlanPortMembership.IGNORED
         return dict(vlan_membership)
 
-    def _add_vlan(self):
-        pass
+    def _add_vlan(self, vid: VlanId):
+        form_data = {
+            "submitId": "vlanDot1VidCfg",
+            "secureRand": self._secure_rand,
+            "addVid": vid,
+            "submitEnd": "",
+        }
+        res = self._s.post(SW_URI_8021Q, data=form_data)
+        assert SW_URI_8021Q.split('/')[-1] in res.text, \
+            f"Cannot add VLAN! Server response: {res.text}"
+    
+    def _delete_vlans(self, vids: List[VlanId]):
+        form_data = {
+            "submitId": "vlanDot1VidCfg",
+            "secureRand": self._secure_rand,
+            "delVid": vids,
+            "submitEnd": "",
+        }
+        res = self._s.post(SW_URI_8021Q, data=form_data)
+        assert SW_URI_8021Q.split('/')[-1] in res.text, \
+            f"Cannot delete VLAN(s)! Server response: {res.text}"
