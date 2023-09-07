@@ -7,7 +7,7 @@ from typing import Dict, List, Set
 from bs4 import BeautifulSoup
 import requests
 
-from ..general import BaseSwitch, PortId, SingleVlanConfig, VlanConfig, VlanId, VlanPortMembership, vlan_ports_to_config_string
+from ..general import BaseSwitch, PortId, PvidConfig, SingleVlanConfig, VlanConfig, VlanId, VlanPortMembership, vlan_ports_to_config_string
 from .consts import *
 from .utils import password_kdf, simple_slug
 
@@ -171,20 +171,20 @@ class Switch(BaseSwitch):
         }
         return settings_dict
 
-    def fetch_pvids(self) -> Dict[PortId, VlanId]:
+    def fetch_pvids(self) -> PvidConfig:
         res = self._s.get(SW_8021Q_PVIDS)
         soup = BeautifulSoup(res.text, features="html.parser")
-        pvids: Dict[PortId, VlanId] = dict()
+        pvids: PvidConfig = dict()
         for port in soup.find_all('tr', attrs={'class': 'portID'}):
             pvid = VlanId(port.find('td', attrs={'class': 'def', 'sel': 'input'}).text)
             pid = PortId(port.find('input', attrs={'type': 'hidden'}).get('value'))
             pvids[pid] = pvid
         return pvids
 
-    def apply_vlan_config(self, membership: VlanConfig, pvids: Dict[PortId, VlanId]):
+    def apply_vlan_config(self, membership: VlanConfig, pvids: PvidConfig):
         self._apply_vlan_settings(membership, pvids)
     
-    def _apply_vlan_settings(self, membership: VlanConfig, pvids: Dict[PortId, VlanId]):
+    def _apply_vlan_settings(self, membership: VlanConfig, pvids: PvidConfig):
         port_count_plus_1 = self._port_count + 1
 
         old_vlans = self.fetch_vlan_membership()
@@ -197,6 +197,7 @@ class Switch(BaseSwitch):
             for p, s in m.items():
                 if s != VlanPortMembership.IGNORED:
                     active_ports.add(p)
+        # These are the ports ommitted/always IGNORED in the VlanConfig
         ports_preserved = set(range(1,port_count_plus_1)) - active_ports
 
         # check VLAN changes
@@ -231,12 +232,14 @@ class Switch(BaseSwitch):
         # preserved ports,
         # - remove original pvid from vids_to_remove,
         # - copy original port membership to new config
+        # - also preserve only the port's vlan config
         vids_to_preserve: Set[VlanId] = set()
         for port_id in ports_preserved:
             pvid = old_pvids[port_id]
             vids_to_preserve.add(pvid)
-            if vlan_port_membership := step2_membership.get(pvid):
-                vlan_port_membership[port_id] = old_vlans[pvid][port_id]
+            # the pvid must exist as a vid in VlanConfig, because all vids are processed,
+            # and old pvid must be one of the vids. 
+            step2_membership[pvid][port_id] = old_vlans[pvid][port_id]
         
         vids_to_remove -= vids_to_preserve
 

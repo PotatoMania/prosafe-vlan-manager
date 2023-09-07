@@ -1,1 +1,1 @@
-from switch import Switch
+from .switch import Switch

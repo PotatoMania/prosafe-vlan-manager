@@ -1,20 +1,21 @@
 # -*- encoding: utf-8 -*-
 
+from collections import defaultdict
 import tomllib
 from typing import List, Dict
 from typing_extensions import Annotated
 
-from pydantic import BaseModel
-from pydantic.functional_validators import AfterValidator, model_validator
+from pydantic import BaseModel, validate_call
+from pydantic.functional_validators import BeforeValidator, model_validator
 
-from .switches.general import VlanPortMembership, VlanId, PortId
+from .switches.general import PvidConfig, VlanConfig, VlanPortMembership, VlanId, PortId
 from .switches.general import SwitchModel
 
 
+@validate_call
 def _validate_vlan_note_list(notes: List[str]):
     data = dict()
     for note in notes:
-        vid = int(note[:-1])
         status = note[-1:]
         if status == 'U':
             status = VlanPortMembership.UNTAGGED
@@ -24,7 +25,7 @@ def _validate_vlan_note_list(notes: List[str]):
             status = VlanPortMembership.IGNORED
         else:
             assert False, f"Unsupported status {status}, should be one of U, T, N"
-        vid = int(vid)
+        vid = VlanId(note[:-1])
         # TODO: move this validation to upper level, so more readable
         assert vid not in data, f"Duplicate VLAN ID: {vid}"
         data[vid] = status
@@ -32,7 +33,7 @@ def _validate_vlan_note_list(notes: List[str]):
     return data
 
 
-_VlanNoteDict = Annotated[List[str], AfterValidator(_validate_vlan_note_list)]
+_VlanNoteDict = Annotated[Dict[VlanId, VlanPortMembership], BeforeValidator(_validate_vlan_note_list)]
 
 
 class _PortVlanConfig(BaseModel):
@@ -58,6 +59,19 @@ class SwitchVlanConfig(BaseModel):
         for pid, port_config in self.ports.items():
             data[pid] = port_config.vlans.get(vid, VlanPortMembership.IGNORED)
         # only contain ports mentioned in the config
+        return data
+    
+    def get_vlan_membership(self) -> VlanConfig:
+        data = defaultdict(lambda: {i: VlanPortMembership.IGNORED for i in range(1, self.model.port_count + 1)})
+        for pid, port_config in self.ports.items():
+            for vid, membership in port_config.vlans.items():
+                data[vid][pid] = membership
+        return dict(data)
+    
+    def get_pvids(self) -> PvidConfig:
+        data: PvidConfig = dict()
+        for pid, port_config in self.ports.items():
+            data[pid] = port_config.pvid
         return data
 
 

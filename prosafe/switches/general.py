@@ -30,6 +30,7 @@ class VlanPortMembership(IntEnum):
 
 SingleVlanConfig = Dict[PortId, VlanPortMembership]
 VlanConfig = Dict[VlanId, SingleVlanConfig]
+PvidConfig = Dict[PortId, VlanId]
 
 
 def vlan_ports_to_config_string(vlan_ports_settings: SingleVlanConfig):
@@ -69,11 +70,11 @@ class BaseSwitch:
         """fetch and return current switch's VLAN configuration"""
         raise NotImplementedError()
     
-    def fetch_pvids(self) -> Dict[PortId, VlanId]:
+    def fetch_pvids(self) -> PvidConfig:
         """fetch pvids"""
         raise NotImplementedError()
 
-    def apply_vlan_config(self, membership: VlanConfig, pvids: Dict[PortId, VlanId]):
+    def apply_vlan_config(self, membership: VlanConfig, pvids: PvidConfig):
         """apply the given VLAN configuration
         
         the configuration must be a full configuration"""
