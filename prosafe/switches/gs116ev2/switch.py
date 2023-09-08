@@ -188,3 +188,17 @@ class Switch(BaseSwitch):
         # the parameter is the VLAN to show
         assert SW_URI_8021Q_MEMBERSHIP.split('/')[-1] + f"?{vid}" in res.text, \
             f"Cannot update VLAN membership! Server response: {res.text}"
+
+    def _set_pvids(self, pvids: PvidConfig):
+        form = [
+            'submitId=vlanDot1PvidCfg',
+            f'secureRand={self._secure_rand}',
+        ]
+        # order matters, and keys dulplicated, so we need to construct the data ourselves
+        for pid, vid in pvids.items():
+            form.append(f'port={pid}&pvid={vid}')
+        form.append('submitEnd=')
+        form_data = '&'.join(form)
+        res = self._s.post(SW_URI_8021Q_PVID, data=form_data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        assert SW_URI_8021Q_PVID.split('/')[-1] in res.text, \
+            f"Cannot update VLAN membership! Server response: {res.text}"
