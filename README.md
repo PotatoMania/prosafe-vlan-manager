@@ -80,6 +80,7 @@ model = "gs108ev3"
 # T: Tagged
 #
 # Any port omitted will be allocated to VLAN{original pvid}.
+# This behavior is model dependent.
 1 = { pvid = 1,     vlans = ['1T', '2T', '23T']}
 2 = { pvid = 2,     vlans = ['2U']}
 3 = { pvid = 1,     vlans = ['1T', '23T']}
@@ -100,6 +101,8 @@ password = "password2"
 model = "gs116ev2"
 
 [switches.switch2.ports]
+# Any port omitted will be disabled.
+# This behavior is model dependent.
 1 = { pvid = 1,     vlans = ['1T']}
 2 = { pvid = 2,     vlans = ['2U']}
 3 = { pvid = 1,     vlans = ['1U']}
