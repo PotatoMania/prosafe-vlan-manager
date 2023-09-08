@@ -230,14 +230,24 @@ class Switch(BaseSwitch):
     def apply_vlan_config(self, membership: VlanConfig, pvids: PvidConfig):
         # This is much simpler compared with GS108Ev3, since fewer restrictions present
         # assume input configuration is valid(as is validated by config loader)
+        # however, we have to apply measures to prevent losing access to the device
+        # I haven't tried to disable all ports, but I think I should prevent it.
+
         old_vlans = self.fetch_vlan_membership()
         new_vlans = membership
 
         vids_old: Set[VlanId] = set(old_vlans.keys())
         vids_new: Set[VlanId] = set(new_vlans.keys())
         vids_to_add = vids_new - vids_old
-        # also ensure VLAN 1 won't be removed
+        # ensure VLAN 1 won't be removed
         vids_to_remove = vids_old - vids_new - set([1])
+        # ensure there's at least one port enabled
+        for pid, pm in new_vlans.get(1, dict()).items():
+            if pm != VlanPortMembership.IGNORED:
+                break
+        else:
+            assert False, \
+                "You must have one port enabled, or you'll lose access to your switch!"
 
         for vid in vids_to_add:
             self._add_vlan(vid)
