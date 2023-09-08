@@ -20,13 +20,6 @@ VlanConfig = Dict[VlanId, SingleVlanConfig]
 PvidConfig = Dict[PortId, VlanId]
 
 
-def vlan_ports_to_config_string(vlan_ports_settings: SingleVlanConfig):
-    """vlan_ports_settings must contain all ports"""
-    pids = sorted(vlan_ports_settings.keys())
-    string = ''.join(map(str, [vlan_ports_settings[pid] for pid in pids]))
-    return string
-
-
 class BaseSwitch:
     def __init__(self, address: str, password: str) -> None:
         pass

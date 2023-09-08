@@ -8,12 +8,19 @@ from functools import partial
 from bs4 import BeautifulSoup
 import requests
 
-from ..general import BaseSwitch, PortId, PvidConfig, SingleVlanConfig, VlanConfig, VlanId, VlanPortMembership, vlan_ports_to_config_string
+from ..general import BaseSwitch, PortId, PvidConfig, SingleVlanConfig, VlanConfig, VlanId, VlanPortMembership
 from .consts import *
 from .utils import password_kdf, simple_slug
 
 
 BeautifulSoup = partial(BeautifulSoup, features="html.parser")
+
+
+def vlan_ports_to_config_string(vlan_ports_settings: SingleVlanConfig):
+    """vlan_ports_settings must contain all ports"""
+    pids = sorted(vlan_ports_settings.keys())
+    string = ''.join(map(str, [vlan_ports_settings[pid] for pid in pids]))
+    return string
 
 
 class SwitchSession(requests.Session):
