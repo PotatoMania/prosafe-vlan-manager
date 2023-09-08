@@ -6,7 +6,7 @@ class RequiredIf(click.Option):
         self.required_if = kwargs.pop('required_if')
         assert self.required_if, "'required_if' parameter required"
         kwargs['help'] = (kwargs.get('help', '') +
-            ' NOTE: this argument is necessary when using "%s"' %
+            ' NOTE: This argument is necessary when using "%s".' %
             self.required_if
         ).strip()
         super(RequiredIf, self).__init__(*args, **kwargs)

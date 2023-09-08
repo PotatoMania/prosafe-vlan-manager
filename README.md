@@ -27,6 +27,13 @@ python -m prosafe apply -c path/to/your/config.toml
 
 The format for configuration is in section [Example configuration](#example-configuration).
 
+About more information on how to use this tool in command line, print the help message with the commands below.
+
+```bash
+python -m prosafe --help
+python -m prosafe apply --help
+```
+
 ## How does this work?
 
 This program is basically a "spider" that mimic user actions on the web interface. I guess this answer is clear enough.
@@ -47,7 +54,7 @@ All 802.1Q VLAN operations, including:
 And extra functions like:
 
 - Read switch information
-- ~~Export statistics~~ __WIP__
+- ~~Export statistics~~ __TBD__
 
 Note the tool itself won't turn on the advanced 802.1Q VLAN function for you. You have to manually enable it, as it may break your current network configuration.
 

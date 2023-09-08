@@ -13,11 +13,13 @@ def cli():
 
 
 @cli.command()
-@click.option('--config', '-c', required=True, help='path to your configuration file')
-@click.option('--norestore', is_flag=True, flag_value=True, default=False, help="skip restore on failure")
+@click.option('--config', '-c', required=True, 
+            type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True),
+            help='Path to your configuration file.')
+@click.option('--norestore', is_flag=True, flag_value=True, default=False, help="Skip restore on failure.")
 @click.option('--savepath', cls=RequiredIf, required_if="norestore",
             type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True),
-            help='if specified, save switch config backups to that folder')
+            help='If specified, save switch config backups to that folder.')
 def apply(config: str, norestore: bool, savepath: str|None):
     click.echo("Loading config from %s ..." % config)
     cfgs = load_config(config)
