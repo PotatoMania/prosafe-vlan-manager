@@ -108,6 +108,6 @@ model = "gs116ev2"
 3 = { pvid = 1,     vlans = ['1U']}
 ```
 
-===
+---
 
 This project is licensed under AGPL 3.0.
