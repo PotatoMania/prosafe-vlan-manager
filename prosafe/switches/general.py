@@ -61,7 +61,7 @@ class BaseSwitch:
         """apply the given VLAN configuration
         
         the configuration must be a full configuration"""
-        raise NotADirectoryError()
+        raise NotImplementedError()
 
     def fetch_statistics(self) -> Dict:
         """fetch latest ports statistic"""

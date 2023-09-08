@@ -1,4 +1,5 @@
 from collections import defaultdict
+from io import BytesIO
 from typing import Dict, List, Set
 import re
 from functools import partial
@@ -8,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from .utils import password_kdf
 from .consts import *
-from ..general import BaseSwitch, VlanPortMembership, VlanId, PortId, PvidConfig, VlanConfig
+from ..general import BaseSwitch, SingleVlanConfig, VlanPortMembership, VlanId, PortId, PvidConfig, VlanConfig
 
 
 BeautifulSoup = partial(BeautifulSoup, features="html.parser")
@@ -152,6 +153,7 @@ class Switch(BaseSwitch):
             f"Cannot add VLAN! Server response: {res.text}"
 
     def _delete_vlans(self, vids: List[VlanId]):
+        assert 1 not in vids, "VLAN 1 cannot be removed!"
         form_data = {
             "submitId": "vlanDot1VidCfg",
             "secureRand": self._secure_rand,
@@ -162,7 +164,7 @@ class Switch(BaseSwitch):
         assert SW_URI_8021Q_CONF.split('/')[-1] in res.text, \
             f"Cannot delete VLAN(s)! Server response: {res.text}"
 
-    def _set_vlan_membership(self, vid: VlanId, membership: Dict[PortId, VlanPortMembership]):
+    def _set_vlan_membership(self, vid: VlanId, membership: SingleVlanConfig):
         mask_member = 0
         mask_tagged = 0
 
@@ -201,4 +203,45 @@ class Switch(BaseSwitch):
         form_data = '&'.join(form)
         res = self._s.post(SW_URI_8021Q_PVID, data=form_data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
         assert SW_URI_8021Q_PVID.split('/')[-1] in res.text, \
-            f"Cannot update VLAN membership! Server response: {res.text}"
+            f"Cannot update PVIDs! Server response: {res.text}"
+
+    def backup(self) -> bytes:
+        r = self._s.get(SW_URI_BACKUP)
+        r.raise_for_status()
+        data = bytes()
+        for i in r.iter_content():
+            data += i
+        return data
+
+    def restore(self, config: bytes):
+        assert len(config) <= 20480, \
+            "Seriously? Config data over 20KBytes? I refuse to restore it! Please restore it manually."
+        files = {'config.cfg': BytesIO(config)}
+        res = self._s.post(SW_URI_RESTORE, files=files)
+
+        # about return value after '?':
+        # 0: fault
+        # 1: success, also inform the ui to logout, but it's not necessary for gs116ev2
+        assert SW_URI_RESTORE.split('/')[-1] + '?1' in res.text, \
+            f"Cannot restore config! Server response: {res.text}"
+        # anyway, logout
+        self.logout()
+
+    def apply_vlan_config(self, membership: VlanConfig, pvids: PvidConfig):
+        # This is much simpler compared with GS108Ev3, since fewer restrictions present
+        # assume input configuration is valid(as is validated by config loader)
+        old_vlans = self.fetch_vlan_membership()
+        new_vlans = membership
+
+        vids_old: Set[VlanId] = set(old_vlans.keys())
+        vids_new: Set[VlanId] = set(new_vlans.keys())
+        vids_to_add = vids_new - vids_old
+        # also ensure VLAN 1 won't be removed
+        vids_to_remove = vids_old - vids_new - set([1])
+
+        for vid in vids_to_add:
+            self._add_vlan(vid)
+        for vid, vm in new_vlans.items():
+            self._set_vlan_membership(vid, vm)
+        self._set_pvids(pvids)
+        self._delete_vlans(list(vids_to_remove))

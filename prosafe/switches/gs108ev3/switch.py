@@ -241,10 +241,9 @@ class Switch(BaseSwitch):
             # then continue to expected setup
             step2_membership[vid] = deepcopy(new_vlans[vid])
 
-        # preserved ports,
-        # - remove original pvid from vids_to_remove,
-        # - copy original port membership to new config
-        # - also preserve only the port's vlan config
+        # preserved ports, only because they need a pvid but not assigned by user
+        # - remove their pvids from vids_to_remove,
+        # - copy its original membership on vlan[pvid] to new config
         vids_to_preserve: Set[VlanId] = set()
         for port_id in ports_preserved:
             pvid = old_pvids[port_id]

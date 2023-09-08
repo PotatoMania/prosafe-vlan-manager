@@ -2,6 +2,7 @@ from enum import StrEnum
 from typing import Type
 from .general import BaseSwitch
 from .gs108ev3 import Switch as DRI_GS108EV3
+from .gs116ev2 import Switch as DRI_GS116EV2
 
 
 SWITCH_PORT_COUNT = {
@@ -11,7 +12,7 @@ SWITCH_PORT_COUNT = {
 
 SWITCH_DRIVER = {
     'gs108ev3': DRI_GS108EV3,
-    'gs116ev2': BaseSwitch,
+    'gs116ev2': DRI_GS116EV2,
 }
 
 class SwitchModel(StrEnum):
