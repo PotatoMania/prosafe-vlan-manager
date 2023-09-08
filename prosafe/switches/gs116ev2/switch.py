@@ -37,6 +37,7 @@ class Switch(BaseSwitch):
     _general_info_pattern = re.compile("(?<=var sysGeneInfor = ')([A-Za-z0-9.?:-]+)(?=';)")
     _secure_rand_pattern = re.compile("(?<=var secureRand = ')([A-Z0-9]+)(?=';)")
     _vlanmem_pattern = re.compile("(?<=var vlanMem = ')([TU0-9,?]+)(?=';)")
+    _pvid_pattern = re.compile("(?<=var pvid = ')[0-9?]+(?=';)")
 
     def __init__(self, address: str, password: str) -> None:
         if address.startswith('http'):
@@ -105,18 +106,18 @@ class Switch(BaseSwitch):
             "confirmOK": "0",
             "submitEnd": "",
         }
-        res = self._s.post(SW_URI_8021Q, data=form_data)
-        assert SW_URI_8021Q.strip('/') in res.text, "Failed to enable advanced 802.1Q VLAN! Maybe you need a re-login?"
+        res = self._s.post(SW_URI_8021Q_CONF, data=form_data)
+        assert SW_URI_8021Q_CONF.strip('/') in res.text, "Failed to enable advanced 802.1Q VLAN! Maybe you need a re-login?"
 
     def fetch_vlan_membership(self) -> VlanConfig:
-        res = self._s.get(SW_URI_8021Q)
+        res = self._s.get(SW_URI_8021Q_CONF)
         matched = self._vlanmem_pattern.search(res.text)
         assert matched != None, f"No VLAN information found! Server response: {res.text}"
         vlan_membership: VlanConfig = defaultdict(lambda: {i: VlanPortMembership.IGNORED for i in range(1, self._port_count + 1)})
         vlan_groups = matched.group(0).split(',')
         for vlan in vlan_groups:
             vlan_info = vlan.split('?')
-            vid = vlan_info[0]
+            vid = VlanId(vlan_info[0])
             # touch each vid, so it's created even if it's empty
             vlan_membership[vid]
             for pid, v in enumerate(vlan_info[1:], 1):
@@ -128,6 +129,17 @@ class Switch(BaseSwitch):
                 #     vlan_membership[vid][pid] = VlanPortMembership.IGNORED
         return dict(vlan_membership)
 
+    def fetch_pvids(self) -> PvidConfig:
+        res = self._s.get(SW_URI_8021Q_CONF)
+        matched = self._pvid_pattern.search(res.text)
+        assert matched != None, f"No PVID information found! Server response: {res.text}"
+        pvids = matched.group(0).split('?')
+        pvid_config: PvidConfig = {
+            i: VlanId(v)
+            for i, v in enumerate(pvids, 1)
+        }
+        return pvid_config
+
     def _add_vlan(self, vid: VlanId):
         form_data = {
             "submitId": "vlanDot1VidCfg",
@@ -135,10 +147,10 @@ class Switch(BaseSwitch):
             "addVid": vid,
             "submitEnd": "",
         }
-        res = self._s.post(SW_URI_8021Q, data=form_data)
-        assert SW_URI_8021Q.split('/')[-1] in res.text, \
+        res = self._s.post(SW_URI_8021Q_CONF, data=form_data)
+        assert SW_URI_8021Q_CONF.split('/')[-1] in res.text, \
             f"Cannot add VLAN! Server response: {res.text}"
-    
+
     def _delete_vlans(self, vids: List[VlanId]):
         form_data = {
             "submitId": "vlanDot1VidCfg",
@@ -146,6 +158,33 @@ class Switch(BaseSwitch):
             "delVid": vids,
             "submitEnd": "",
         }
-        res = self._s.post(SW_URI_8021Q, data=form_data)
-        assert SW_URI_8021Q.split('/')[-1] in res.text, \
+        res = self._s.post(SW_URI_8021Q_CONF, data=form_data)
+        assert SW_URI_8021Q_CONF.split('/')[-1] in res.text, \
             f"Cannot delete VLAN(s)! Server response: {res.text}"
+
+    def _set_vlan_membership(self, vid: VlanId, membership: Dict[PortId, VlanPortMembership]):
+        mask_member = 0
+        mask_tagged = 0
+
+        for pid, mb in membership.items():
+            if mb == VlanPortMembership.UNTAGGED:
+                mask_member |= 1 << pid
+            elif mb == VlanPortMembership.TAGGED:
+                mask_member |= 1 << pid
+                mask_tagged |= 1 << pid
+
+        form_data = {
+            'submitId': 'vlanDot1TagCfg',
+            'secureRand': self._secure_rand,
+            'vid': vid,
+            'member': mask_member,
+            'tag': mask_tagged,
+            'submitEnd': '',
+        }
+        # Posting to SW_URI_8021Q_CONF seems ok as well.
+        # Maybe the only thing matters is the form data.
+        res = self._s.post(SW_URI_8021Q_MEMBERSHIP, data=form_data)
+        # when succeeded, it will jump to original page
+        # the parameter is the VLAN to show
+        assert SW_URI_8021Q_MEMBERSHIP.split('/')[-1] + f"?{vid}" in res.text, \
+            f"Cannot update VLAN membership! Server response: {res.text}"
