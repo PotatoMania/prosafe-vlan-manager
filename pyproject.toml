@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "a tool to manage VLAN on some netgear prosafe switches"
 authors = ["Potato <nikko@faint.day>"]
 readme = "README.md"
-packages = [{include = "prosafe_vlan_manager"}]
+packages = [{include = "prosafe"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"

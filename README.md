@@ -7,7 +7,7 @@ Currently implemented and tested devices, and their firmware versions:
 - GS108Ev3
     - V2.06.10EN
     - V2.06.24EN
-- ~~GS116Ev2~~ __WIP__
+- GS116Ev2
     - V2.6.0.48
 
 ## Intro
@@ -62,8 +62,8 @@ anykey = "won't be parsed, everything important are under 'switches'"
 [switches.switch1]
 # switch1 is the switch's nickname, only useful in logs and config backups
 # multiple switches can be defined, so long as they have different names
-address = "***REMOVED***"
-password = "***REMOVED***"
+address = "192.168.0.101"
+password = "password1"
 model = "gs108ev3"
 
 [switches.switch1.ports]
@@ -86,4 +86,14 @@ model = "gs108ev3"
 [switches.switch1.ports.8]
 pvid = 1
 vlans = ['1U']
+
+[switches.switch2]
+address = "192.168.0.239"
+password = "password2"
+model = "gs116ev2"
+
+[switches.switch2.ports]
+1 = { pvid = 1,     vlans = ['1T']}
+2 = { pvid = 2,     vlans = ['2U']}
+3 = { pvid = 1,     vlans = ['1U']}
 ```
