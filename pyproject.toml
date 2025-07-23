@@ -1,20 +1,14 @@
-[tool.poetry]
+[project]
 name = "prosafe-vlan-manager"
 version = "0.1.0"
 description = "a tool to manage VLAN on some netgear prosafe switches"
-authors = ["Potato <nikko@faint.day>"]
 readme = "README.md"
-packages = [{include = "prosafe"}]
+authors = [{ name = "Potato", email = "nikko@faint.day" }]
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4~=4.12.2",
+    "click~=8.1.7",
+    "pydantic~=2.3.0",
+    "requests~=2.31.0",
+]
 license = "AGPL-3.0-only"
-
-[tool.poetry.dependencies]
-python = "^3.11"
-beautifulsoup4 = "^4.12.2"
-requests = "^2.31.0"
-pydantic = "^2.3.0"
-click = "^8.1.7"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

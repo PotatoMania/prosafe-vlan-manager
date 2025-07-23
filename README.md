@@ -22,7 +22,10 @@ You can apply your configuration with the following command:
 
 ```bash
 # Note: you have to setup the environment before running this command
+# e.g. run `uv sync && source .venv/bin/activate` once
 python -m prosafe apply -c path/to/your/config.toml
+# if you have uv installed:
+uv run -m prosafe -- apply -c path/to/your/config.toml
 ```
 
 The format for configuration is in section [Example configuration](#example-configuration).
